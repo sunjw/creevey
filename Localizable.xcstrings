@@ -702,6 +702,9 @@
         }
       }
     },
+    "Auto" : {
+
+    },
     "Auto-advance" : {
       "localizations" : {
         "de" : {
@@ -1077,6 +1080,12 @@
           }
         }
       }
+    },
+    "Folder Browser Font Size:" : {
+
+    },
+    "Fonts" : {
+      "comment" : "Font settings tab"
     },
     "Getting filenames..." : {
       "localizations" : {
@@ -1844,6 +1853,9 @@
         }
       }
     },
+    "Note: Changes apply immediately to all windows. Thumbnail label size of 'Auto' adjusts based on thumbnail width." : {
+
+    },
     "Other Properties:\n" : {
       "localizations" : {
         "de" : {
@@ -1945,6 +1957,9 @@
           }
         }
       }
+    },
+    "Reset" : {
+
     },
     "seconds" : {
       "comment" : "use something short, like \"s\"",
@@ -2203,6 +2218,9 @@
           }
         }
       }
+    },
+    "Thumbnail Label Font Size:" : {
+
     },
     "Unsupported Properties:\n" : {
       "localizations" : {
