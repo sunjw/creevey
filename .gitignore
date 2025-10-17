@@ -3,4 +3,6 @@
 project.xcworkspace/
 xcuserdata/
 /.DerivedData
+DerivedData/
+xcshareddata/
 
