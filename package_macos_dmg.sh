@@ -9,7 +9,7 @@ fi
 cur_dir=$PWD
 app_title="Phoenix Slides"
 app_name="$app_title.app"
-vol_name=app_title
+vol_name=$app_title
 src_folder=$1
 temp_dmg_path="$app_title-VERSION-macOS.dmg"
 
