@@ -172,7 +172,7 @@
 		F28F0C0A07F5E642009BF709 /* DYWrappingMatrix.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYWrappingMatrix.m; sourceTree = "<group>"; };
 		F29447970820946000B932C1 /* Credits.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = Credits.html; sourceTree = "<group>"; };
 		F299B06007FDF5F7006028C1 /* DYImageView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DYImageView.h; sourceTree = "<group>"; };
-		F299B06107FDF5F7006028C1 /* DYImageView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYImageView.m; sourceTree = "<group>"; };
+		F299B06107FDF5F7006028C1 /* DYImageView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYImageView.m; sourceTree = "<group>"; usesTabs = 1; };
 		F29CD2340800C372000B0F91 /* DYCarbonGoodies.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DYCarbonGoodies.h; sourceTree = "<group>"; };
 		F29CD2350800C372000B0F91 /* DYCarbonGoodies.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYCarbonGoodies.m; sourceTree = "<group>"; };
 		F2A6DA5C2B3F7E01009D0B31 /* NSMutableArray+DYMovable.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSMutableArray+DYMovable.h"; sourceTree = "<group>"; };
