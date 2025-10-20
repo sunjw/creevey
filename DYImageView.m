@@ -435,14 +435,11 @@
 		// destSize was set above to the view size (possibly swapped for rotation).
 		float nx = destSize.width  > 0 ? (curLocation.x / destSize.width) : 0.5f;
 		float ny = destSize.height > 0 ? (curLocation.y / destSize.height) : 0.5f;
-		if (nx < 0)
-			nx = 0;
-		else if (nx > 1)
-			nx = 1;
-		if (ny < 0)
-			ny = 0;
-		else if (ny > 1)
-			ny = 1;
+
+		if (nx < 0) nx = 0;
+		else if (nx > 1) nx = 1;
+		if (ny < 0) ny = 0;
+		else if (ny > 1) ny = 1;
 
 		// Compute the image pixel that is currently under the cursor (before zoom)
 		float imgX = sourceRect.origin.x + nx * sourceRect.size.width;
