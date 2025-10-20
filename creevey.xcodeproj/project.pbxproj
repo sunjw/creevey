@@ -200,7 +200,7 @@
 		F2E83B920BD09D8F0092E425 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F2EFCFC10963D99F0033F328 /* libjpeg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg.a; path = libjpeg/libjpeg.a; sourceTree = "<group>"; };
 		F2F2641307EEA114006164BF /* SlideshowWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SlideshowWindow.h; sourceTree = "<group>"; };
-		F2F3B72107F7B49400D9C639 /* SlideshowWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SlideshowWindow.m; sourceTree = "<group>"; };
+		F2F3B72107F7B49400D9C639 /* SlideshowWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SlideshowWindow.m; sourceTree = "<group>"; usesTabs = 1; };
 		F2F5418E080A3846008AE60F /* DYCreeveyBrowser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DYCreeveyBrowser.h; sourceTree = "<group>"; };
 		F2F5418F080A3846008AE60F /* DYCreeveyBrowser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYCreeveyBrowser.m; sourceTree = "<group>"; };
 		F2FA6DEA2AF8CF4700F3A28B /* VDKQueue.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VDKQueue.m; sourceTree = "<group>"; };
