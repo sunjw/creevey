@@ -2,45 +2,68 @@
 
 if [ -z "$1" ]
   then
+    echo "Don't forget \"npm install --global create-dmg\""
     echo "Usage: package_dmg.sh </some/archive/Applications_contains_.app>"
     exit
 fi
 
 cur_dir=$PWD
-app_title="Phoenix Slides"
-app_name="$app_title.app"
+application_folder=$1
+
+echo "Create DMG from [$application_folder]..."
+
+cd "$application_folder"
+
+app_name=$(find . -maxdepth 1 -type d -name "*.app" | sort | head -n 1)
+
+if [ -z "$app_name" ]; then
+  echo "No .app found in [$application_folder]"
+  cd "$cur_dir"
+  exit 1
+fi
+
+app_name=${app_name#./}
+app_title=${app_name%.app}
 vol_name=$app_title
-src_folder=$1
-temp_dmg_path="$app_title-VERSION-macOS.dmg"
+temp_dmg_name="$app_title-VERSION-macOS.dmg"
 
-echo "Create DMG from [$src_folder]..."
+# Get version
+plist_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$app_name/Contents/Info.plist")
+temp_dmg_name=${temp_dmg_name/VERSION/$plist_version}
 
-cd "$src_folder"
+echo "Found app [$app_name], version [$plist_version]"
 
 # Clean
 rm -f .DS_Store
-# Make /Applications link
-ln -s /Applications Applications
-# Get version
-plist_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$app_name/Contents/Info.plist")
-temp_dmg_path=${temp_dmg_path/VERSION/$plist_version}
 
-cd "$cur_dir"
+# # Make /Applications link
+# ln -s /Applications Applications
 
-# Create DMG
-hdiutil create -format UDZO -fs HFS+ -volname "$vol_name" -srcfolder "$src_folder" "$temp_dmg_path"
+# cd "$cur_dir"
 
-# Move to target directory
-echo "Move DMG to [$src_folder]"
-mv "$temp_dmg_path" "$src_folder"
+# # Create DMG
+# hdiutil create -format UDZO -fs HFS+ -volname "$vol_name" -srcfolder "$application_folder" "$temp_dmg_name"
 
-cd "$src_folder"
+# # Move to target directory
+# echo "Move DMG to [$application_folder]"
+# mv "$temp_dmg_name" "$application_folder"
 
-# Clean
-rm -f Applications
+# cd "$application_folder"
+
+# # Clean
+# rm -f Applications
+
+# Call create-dmg
+# Don't forget "npm install --global create-dmg"
+create-dmg --overwrite --no-code-sign "$app_name"
+
+# Rename dmg
+dmg_file=$(ls *.dmg)
+# echo $dmg_file
+mv "$dmg_file" "$temp_dmg_name"
 
 # Tar
-tar -cJvf "$app_name.tar.xz" "$app_name"
+tar -cJvf "$app_name-$plist_version.tar.xz" "$app_name"
 
 cd "$cur_dir"
 
