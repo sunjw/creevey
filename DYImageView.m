@@ -123,10 +123,7 @@
 	
 	NSRect srcRect, destinationRect, boundsRect;
 	float zoom = zoomF;
-	float centerX, centerY; float tmp;
 	[self getCurrentDisplaySourceRect:&srcRect destinationRect:&destinationRect boundsRect:&boundsRect];
-	centerX = (int)(boundsRect.size.width/2);
-	centerY = (int)(boundsRect.size.height/2);
 	if (!zoomF) {
 		zoom = destinationRect.size.width / srcRect.size.width;
 	}
