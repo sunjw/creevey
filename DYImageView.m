@@ -695,6 +695,30 @@
 	}
 }
 
+- (void)recenterAfterMagnify {
+	if (zoomF == 0) return;
+
+	NSRect currentSourceRect, currentDestinationRect, boundsRect;
+	[self getCurrentDisplaySourceRect:&currentSourceRect destinationRect:&currentDestinationRect boundsRect:&boundsRect];
+	NSPoint newOffset = destinationOffset;
+	BOOL changed = NO;
+
+	if (currentSourceRect.size.width >= image.size.width && currentDestinationRect.size.width < boundsRect.size.width) {
+		newOffset.x = 0;
+	}
+	if (currentSourceRect.size.height >= image.size.height && currentDestinationRect.size.height < boundsRect.size.height) {
+		newOffset.y = 0;
+	}
+
+	newOffset = [self clampedDestinationOffset:newOffset destinationSize:currentDestinationRect.size boundsRect:boundsRect];
+	changed = !NSEqualPoints(newOffset, destinationOffset);
+	if (!changed) return;
+
+	destinationOffset = newOffset;
+	[self setCursor];
+	[self setNeedsDisplay:YES];
+}
+
 - (DYImageViewZoomInfo *)zoomInfo {
 	if (!showActualSize && zoomF == 0) return nil;
 	DYImageViewZoomInfo *i = [[DYImageViewZoomInfo alloc] init];

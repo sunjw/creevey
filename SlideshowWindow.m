@@ -1125,6 +1125,9 @@ scheduledTimerWithTimeInterval:timerIntvl
 		NSPoint cursorLocInView = [imgView convertPoint:cursorLocInWindow fromView:nil];
 		[imgView setZoomF:zoom * (1.0 + event.magnification)
 			  curLocation:cursorLocInView];
+		if (event.phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) {
+			[imgView recenterAfterMagnify];
+		}
 		[self updateInfoFld];
 	}
 }
