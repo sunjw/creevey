@@ -13,6 +13,7 @@
 	@public
 	NSRect sourceRect;
 	NSSize destSize;
+	NSPoint destinationOffset;
 	float zoomF;
 }
 @end

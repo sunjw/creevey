@@ -22,11 +22,43 @@
 	BOOL scalesUp, showActualSize, isImageFlipped;
 	NSRect sourceRect;
 	NSSize destSize;
+	NSPoint destinationOffset;
 	float zoomF;
 }
 
 - (NSRect)boundsRectForZoomCalculation {
 	return [self convertRect:self.bounds toView:nil];
+}
+
+- (NSPoint)centeredDestinationOriginForSize:(NSSize)size boundsRect:(NSRect)boundsRect {
+	return NSMakePoint(boundsRect.origin.x + (boundsRect.size.width - size.width)/2,
+		boundsRect.origin.y + (boundsRect.size.height - size.height)/2);
+}
+
+- (NSPoint)clampedDestinationOffset:(NSPoint)offset destinationSize:(NSSize)size boundsRect:(NSRect)boundsRect {
+	NSPoint centeredOrigin = [self centeredDestinationOriginForSize:size boundsRect:boundsRect];
+	NSPoint minOffset = NSMakePoint(boundsRect.origin.x - centeredOrigin.x,
+		boundsRect.origin.y - centeredOrigin.y);
+	NSPoint maxOffset = NSMakePoint(NSMaxX(boundsRect) - size.width - centeredOrigin.x,
+		NSMaxY(boundsRect) - size.height - centeredOrigin.y);
+
+	if (minOffset.x > maxOffset.x) {
+		offset.x = 0;
+	} else if (offset.x < minOffset.x) {
+		offset.x = minOffset.x;
+	} else if (offset.x > maxOffset.x) {
+		offset.x = maxOffset.x;
+	}
+
+	if (minOffset.y > maxOffset.y) {
+		offset.y = 0;
+	} else if (offset.y < minOffset.y) {
+		offset.y = minOffset.y;
+	} else if (offset.y > maxOffset.y) {
+		offset.y = maxOffset.y;
+	}
+
+	return offset;
 }
 
 - (NSAffineTransform *)imageTransformForBoundsRect:(NSRect)boundsRect {
@@ -44,14 +76,16 @@
 	if (!image) return;
 
 	NSRect boundsRect = [self boundsRectForZoomCalculation];
-	float centerX = (int)(boundsRect.size.width/2);
-	float centerY = (int)(boundsRect.size.height/2);
 	NSRect source = NSZeroRect;
 	NSRect destination = NSZeroRect;
 
 	if (zoomF) {
 		source = sourceRect;
 		destination.size = destSize;
+		NSPoint centeredOrigin = [self centeredDestinationOriginForSize:destination.size boundsRect:boundsRect];
+		NSPoint offset = [self clampedDestinationOffset:destinationOffset destinationSize:destination.size boundsRect:boundsRect];
+		destination.origin.x = centeredOrigin.x + offset.x;
+		destination.origin.y = centeredOrigin.y + offset.y;
 	} else {
 		NSSize fitSize = boundsRect.size;
 		if (rotation == 90 || rotation == -90) {
@@ -80,10 +114,9 @@
 				destination.size.height = (int)(fitSize.height);
 			}
 		}
-	}
 
-	destination.origin.x = (int)(centerX - destination.size.width/2);
-	destination.origin.y = (int)(centerY - destination.size.height/2);
+		destination.origin = [self centeredDestinationOriginForSize:destination.size boundsRect:boundsRect];
+	}
 
 	if (outSourceRect) *outSourceRect = source;
 	if (outDestinationRect) *outDestinationRect = destination;
@@ -222,6 +255,7 @@
 	zoomF = 0;
 	rotation = 0;
 	isImageFlipped = NO;
+	destinationOffset = NSZeroPoint;
 
 	[NSCursor.arrowCursor set];
 	[self setNeedsDisplay:YES];
@@ -307,6 +341,11 @@
 			sourceRect.origin.y = tmp;
 		}
 	}
+	if (center) {
+		destinationOffset = NSZeroPoint;
+	}
+	NSRect boundsRect = [self boundsRectForZoomCalculation];
+	destinationOffset = [self clampedDestinationOffset:destinationOffset destinationSize:destSize boundsRect:boundsRect];
 	[self setCursor];
 	[self setNeedsDisplay:YES];
 }
@@ -428,6 +467,7 @@
 	NSSize imgSize = image.size;
 	NSRect currentSourceRect, currentDestinationRect, boundsRect;
 	[self getCurrentDisplaySourceRect:&currentSourceRect destinationRect:&currentDestinationRect boundsRect:&boundsRect];
+	NSPoint currentCenteredOrigin = [self centeredDestinationOriginForSize:currentDestinationRect.size boundsRect:boundsRect];
 
 	float tmp;
 	NSSize bSize = boundsRect.size;
@@ -450,6 +490,8 @@
 		s.height = imgSize.height;
 		destSize.height = (int)(s.height*zoomF);
 	}
+	NSPoint newCenteredOrigin = [self centeredDestinationOriginForSize:destSize boundsRect:boundsRect];
+	NSPoint newDestinationOffset = NSZeroPoint;
 
 	if (NSPointInRect(curLocation, self.bounds)) {
 		NSPoint cursorInWindow = [self convertPoint:curLocation toView:nil];
@@ -472,20 +514,33 @@
 		float imgX = currentSourceRect.origin.x + nx * currentSourceRect.size.width;
 		float imgY = currentSourceRect.origin.y + ny * currentSourceRect.size.height;
 
-		float newOriginX = imgX - nx * s.width;
-		float newOriginY = imgY - ny * s.height;
+		if (s.width < imgSize.width) {
+			float ratioX = destSize.width > 0 ? (untransformedCursor.x - newCenteredOrigin.x) / destSize.width : 0.5f;
+			if (ratioX < 0) ratioX = 0;
+			else if (ratioX > 1) ratioX = 1;
+			sourceRect.origin.x = imgX - ratioX * s.width;
+			if (sourceRect.origin.x < 0)
+				sourceRect.origin.x = 0;
+			else if (sourceRect.origin.x > imgSize.width - s.width)
+				sourceRect.origin.x = imgSize.width - s.width;
+		} else {
+			sourceRect.origin.x = 0;
+			newDestinationOffset.x = untransformedCursor.x - (imgX / s.width) * destSize.width - newCenteredOrigin.x;
+		}
 
-		if (newOriginX < 0)
-			newOriginX = 0;
-		if (newOriginY < 0)
-			newOriginY = 0;
-		if (newOriginX > imgSize.width - s.width)
-			newOriginX = imgSize.width - s.width;
-		if (newOriginY > imgSize.height - s.height)
-			newOriginY = imgSize.height - s.height;
-
-		sourceRect.origin.x = newOriginX;
-		sourceRect.origin.y = newOriginY;
+		if (s.height < imgSize.height) {
+			float ratioY = destSize.height > 0 ? (untransformedCursor.y - newCenteredOrigin.y) / destSize.height : 0.5f;
+			if (ratioY < 0) ratioY = 0;
+			else if (ratioY > 1) ratioY = 1;
+			sourceRect.origin.y = imgY - ratioY * s.height;
+			if (sourceRect.origin.y < 0)
+				sourceRect.origin.y = 0;
+			else if (sourceRect.origin.y > imgSize.height - s.height)
+				sourceRect.origin.y = imgSize.height - s.height;
+		} else {
+			sourceRect.origin.y = 0;
+			newDestinationOffset.y = untransformedCursor.y - (imgY / s.height) * destSize.height - newCenteredOrigin.y;
+		}
 
 	} else {
 		// new x
@@ -500,6 +555,9 @@
 				sourceRect.origin.x = currentSourceRect.origin.x + (currentSourceRect.size.width - s.width)/2.0;
 		} else {
 			sourceRect.origin.x = 0;
+			if (currentSourceRect.size.width == imgSize.width) {
+				newDestinationOffset.x = currentDestinationRect.origin.x - currentCenteredOrigin.x;
+			}
 		}
 
 		// new y
@@ -512,10 +570,14 @@
 				sourceRect.origin.y = currentSourceRect.origin.y + (currentSourceRect.size.height - s.height)/2.0;
 		} else {
 			sourceRect.origin.y = 0;
+			if (currentSourceRect.size.height == imgSize.height) {
+				newDestinationOffset.y = currentDestinationRect.origin.y - currentCenteredOrigin.y;
+			}
 		}
 	}
 
 	sourceRect.size = s;
+	destinationOffset = [self clampedDestinationOffset:newDestinationOffset destinationSize:destSize boundsRect:boundsRect];
 	
 	[self setCursor];
 	[self setNeedsDisplay:YES];
@@ -541,38 +603,60 @@
 }
 
 - (void)fakeDragX:(float)x y:(float)y {
-	x /= zoomF;
-	y /= zoomF;
-	float xmax,ymax;
-	xmax = image.size.width - sourceRect.size.width;
-	ymax = image.size.height - sourceRect.size.height;
-	if (xmax > 0 || ymax > 0) {
-		switch (rotation) {
-			case -90:
-				sourceRect.origin.y -= x;
-				sourceRect.origin.x += y;
-				break;
-			case 90:
-				sourceRect.origin.y += x;
-				sourceRect.origin.x -= y;
-				break;
-			case 180:
-				sourceRect.origin.x += x;
-				sourceRect.origin.y += y;
-				break;
-			default:
-				sourceRect.origin.x -= x;
-				sourceRect.origin.y -= y;
-				break;
+	if (!image || zoomF == 0) return;
+	NSRect currentSourceRect, currentDestinationRect, boundsRect;
+	[self getCurrentDisplaySourceRect:&currentSourceRect destinationRect:&currentDestinationRect boundsRect:&boundsRect];
+	NSAffineTransform *inverseTransform = [self imageTransformForBoundsRect:boundsRect];
+	[inverseTransform invert];
+	NSPoint p0 = [inverseTransform transformPoint:NSZeroPoint];
+	NSPoint p1 = [inverseTransform transformPoint:NSMakePoint(x, y)];
+	float dragX = p1.x - p0.x;
+	float dragY = p1.y - p0.y;
+	BOOL changed = NO;
+	float xmax = image.size.width - currentSourceRect.size.width;
+	float ymax = image.size.height - currentSourceRect.size.height;
+
+	if (xmax > 0) {
+		float newOriginX = sourceRect.origin.x - dragX/zoomF;
+		if (newOriginX > xmax)
+			newOriginX = xmax;
+		else if (newOriginX < 0)
+			newOriginX = 0;
+		if (newOriginX != sourceRect.origin.x) {
+			sourceRect.origin.x = newOriginX;
+			changed = YES;
 		}
-		if (sourceRect.origin.x > xmax)
-			sourceRect.origin.x = xmax;
-		else if (sourceRect.origin.x < 0)
-			sourceRect.origin.x = 0;
-		if (sourceRect.origin.y > ymax)
-			sourceRect.origin.y = ymax;
-		else if (sourceRect.origin.y < 0)
-			sourceRect.origin.y = 0;
+	} else if (currentDestinationRect.size.width < boundsRect.size.width) {
+		NSPoint newOffset = destinationOffset;
+		newOffset.x += dragX;
+		newOffset = [self clampedDestinationOffset:newOffset destinationSize:currentDestinationRect.size boundsRect:boundsRect];
+		if (newOffset.x != destinationOffset.x) {
+			destinationOffset.x = newOffset.x;
+			changed = YES;
+		}
+	}
+
+	if (ymax > 0) {
+		float newOriginY = sourceRect.origin.y - dragY/zoomF;
+		if (newOriginY > ymax)
+			newOriginY = ymax;
+		else if (newOriginY < 0)
+			newOriginY = 0;
+		if (newOriginY != sourceRect.origin.y) {
+			sourceRect.origin.y = newOriginY;
+			changed = YES;
+		}
+	} else if (currentDestinationRect.size.height < boundsRect.size.height) {
+		NSPoint newOffset = destinationOffset;
+		newOffset.y += dragY;
+		newOffset = [self clampedDestinationOffset:newOffset destinationSize:currentDestinationRect.size boundsRect:boundsRect];
+		if (newOffset.y != destinationOffset.y) {
+			destinationOffset.y = newOffset.y;
+			changed = YES;
+		}
+	}
+
+	if (changed) {
 		[self setNeedsDisplay:YES];
 	}
 }
@@ -605,6 +689,7 @@
 - (void)zoomOff {
 	if (zoomF) {
 		zoomF = 0;
+		destinationOffset = NSZeroPoint;
 		[NSCursor.arrowCursor set];
 		[self setNeedsDisplay:YES];
 	}
@@ -616,12 +701,15 @@
 	i->zoomF = zoomF;
 	i->sourceRect = sourceRect;
 	i->destSize = destSize;
+	NSRect boundsRect = [self boundsRectForZoomCalculation];
+	i->destinationOffset = [self clampedDestinationOffset:destinationOffset destinationSize:destSize boundsRect:boundsRect];
 	return i;
 }
 - (void)setZoomInfo:(DYImageViewZoomInfo *)i {
 	zoomF = i->zoomF;
 	sourceRect = i->sourceRect;
 	destSize = i->destSize;
+	destinationOffset = i->destinationOffset;
 	[self setCursor];
 	[self setNeedsDisplay:YES];
 }
@@ -631,6 +719,7 @@
 		if (zoomF != 1) return YES;
 		
 		NSSize imgSize = image.size;
+		if (!NSEqualPoints(destinationOffset, NSZeroPoint)) return YES;
 		return (sourceRect.origin.x != sourceRect.size.width > imgSize.width ? 0 : (imgSize.width - sourceRect.size.width)/2)
 			|| (sourceRect.origin.y != sourceRect.size.height > imgSize.height ? 0 : (imgSize.height - sourceRect.size.height)/2);
 	} else {
@@ -644,8 +733,13 @@
 
 - (BOOL)dragMode {
 	if (zoomF == 0) return NO;
+	NSRect currentSourceRect, currentDestinationRect, boundsRect;
+	[self getCurrentDisplaySourceRect:&currentSourceRect destinationRect:&currentDestinationRect boundsRect:&boundsRect];
 	NSSize imgSize = image.size;
-	return sourceRect.size.width < imgSize.width || sourceRect.size.height < imgSize.height;
+	return currentSourceRect.size.width < imgSize.width
+		|| currentSourceRect.size.height < imgSize.height
+		|| currentDestinationRect.size.width < boundsRect.size.width
+		|| currentDestinationRect.size.height < boundsRect.size.height;
 }
 - (void)setCursor {
 	// sets hand or arrow, depending
