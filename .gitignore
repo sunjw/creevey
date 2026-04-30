@@ -6,3 +6,5 @@ xcuserdata/
 DerivedData/
 xcshareddata/
 
+.derived-data-log-*
+
