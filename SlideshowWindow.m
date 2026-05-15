@@ -163,9 +163,11 @@ static BOOL UsingMagicMouse(NSEvent *e) {
 	if (b) {
 		self.styleMask = NSWindowStyleMaskBorderless;
 		self.collectionBehavior = NSWindowCollectionBehaviorParticipatesInCycle|NSWindowCollectionBehaviorFullScreenNone|NSWindowCollectionBehaviorMoveToActiveSpace;
+		self.hasShadow = NO; // avoid weird border from macOS 26's "liquid glass" effect
 	} else {
 		self.styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
 		self.collectionBehavior = NSWindowCollectionBehaviorParticipatesInCycle|NSWindowCollectionBehaviorFullScreenNone|NSWindowCollectionBehaviorMoveToActiveSpace;
+		self.hasShadow = YES;
 	}
 	if (self.visible)
 		[self configureScreen];
@@ -1168,8 +1170,8 @@ scheduledTimerWithTimeInterval:timerIntvl
 	}
 	return filenames[idx];
 }
-- (NSString *)basePath {
-	return basePath;
+- (NSURL *)baseURL {
+	return [NSURL fileURLWithPath:basePath isDirectory:YES];
 }
 - (unsigned short)currentOrientation {
 	NSString *theFile = filenames[self.currentIndex];
