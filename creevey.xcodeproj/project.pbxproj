@@ -172,7 +172,7 @@
 		F28F0C0A07F5E642009BF709 /* DYWrappingMatrix.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYWrappingMatrix.m; sourceTree = "<group>"; };
 		F29447970820946000B932C1 /* Credits.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = Credits.html; sourceTree = "<group>"; };
 		F299B06007FDF5F7006028C1 /* DYImageView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DYImageView.h; sourceTree = "<group>"; };
-		F299B06107FDF5F7006028C1 /* DYImageView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYImageView.m; sourceTree = "<group>"; usesTabs = 1; };
+		F299B06107FDF5F7006028C1 /* DYImageView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYImageView.m; sourceTree = "<group>"; };
 		F29CD2340800C372000B0F91 /* DYCarbonGoodies.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DYCarbonGoodies.h; sourceTree = "<group>"; };
 		F29CD2350800C372000B0F91 /* DYCarbonGoodies.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYCarbonGoodies.m; sourceTree = "<group>"; };
 		F2A6DA5C2B3F7E01009D0B31 /* NSMutableArray+DYMovable.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSMutableArray+DYMovable.h"; sourceTree = "<group>"; };
@@ -200,7 +200,7 @@
 		F2E83B920BD09D8F0092E425 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F2EFCFC10963D99F0033F328 /* libjpeg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjpeg.a; path = libjpeg/libjpeg.a; sourceTree = "<group>"; };
 		F2F2641307EEA114006164BF /* SlideshowWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SlideshowWindow.h; sourceTree = "<group>"; };
-		F2F3B72107F7B49400D9C639 /* SlideshowWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SlideshowWindow.m; sourceTree = "<group>"; usesTabs = 1; };
+		F2F3B72107F7B49400D9C639 /* SlideshowWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SlideshowWindow.m; sourceTree = "<group>"; };
 		F2F5418E080A3846008AE60F /* DYCreeveyBrowser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DYCreeveyBrowser.h; sourceTree = "<group>"; };
 		F2F5418F080A3846008AE60F /* DYCreeveyBrowser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DYCreeveyBrowser.m; sourceTree = "<group>"; };
 		F2FA6DEA2AF8CF4700F3A28B /* VDKQueue.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VDKQueue.m; sourceTree = "<group>"; };
@@ -518,10 +518,9 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1510;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					8D1107260486CEB800E47090 = {
-						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.HardenedRuntime = {
 								enabled = 1;
@@ -749,19 +748,15 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = "Phoenix Slides.entitlements";
-				CODE_SIGN_IDENTITY = "Mac Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
-				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32;
+				CURRENT_PROJECT_VERSION = 33;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/libjpeg";
-				MARKETING_VERSION = 1.5.9;
+				MARKETING_VERSION = 1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = net.blyt.phoenixslides;
 				PRODUCT_NAME = "Phoenix Slides";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -778,19 +773,15 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = "Phoenix Slides.entitlements";
-				CODE_SIGN_IDENTITY = "Mac Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 32;
+				CURRENT_PROJECT_VERSION = 33;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/libjpeg";
-				MARKETING_VERSION = 1.5.9;
+				MARKETING_VERSION = 1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = net.blyt.phoenixslides;
 				PRODUCT_NAME = "Phoenix Slides";
-				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -828,6 +819,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 9436CS8LQX;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -844,7 +836,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 11.5;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 			};
@@ -877,6 +869,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 9436CS8LQX;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -891,7 +884,7 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 11.5;
 				SDKROOT = macosx;
 			};
 			name = Release;

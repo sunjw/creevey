@@ -13,6 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 // returns path if it's not an alias, or if not resolvable
 NSString *ResolveAliasToPath(NSString *path);
 NSURL * _Nullable ResolveAliasURL(NSURL *url);
+BOOL IsAliasFilePath(NSString *path);
 
 // for extensions
 BOOL IsJPEG(NSString *x);
@@ -22,6 +23,10 @@ BOOL IsNotCGImage(NSString *x);
 
 // for paths
 BOOL FileIsJPEG(NSString *s);
+@interface NSArray (DYPathToURLHelper)
+@property (nonatomic, readonly) NSArray<NSURL *> *asFileURLs;
+@property (nonatomic, readonly) NSArray<NSString *> *asFilePaths;
+@end
 
 CGImageSourceRef _Nullable CGImageSourceCreateFromPath(NSString *path);
 

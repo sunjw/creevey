@@ -41,6 +41,19 @@ NSURL * _Nullable ResolveAliasURL(NSURL *url) {
 	return result;
 }
 
+BOOL IsAliasFilePath(NSString *path) {
+	CFURLRef url = CFURLCreateWithFileSystemPath(NULL, (CFStringRef)path, kCFURLPOSIXPathStyle, NO);
+	if (url == NULL) return NO;
+	Boolean isAlias = NO;
+	CFBooleanRef b;
+	if (CFURLCopyResourcePropertyForKey(url, kCFURLIsAliasFileKey, &b, NULL)) {
+		isAlias = CFBooleanGetValue(b);
+		CFRelease(b);
+	}
+	CFRelease(url);
+	return isAlias;
+}
+
 BOOL IsJPEG(NSString *x) {
 	return [x isEqualToString:@"jpg"] || [x isEqualToString:@"jpeg"];
 }
@@ -72,6 +85,28 @@ BOOL FileIsJPEG(NSString *s) {
 	return [x isEqualToString:@"jpg"] || [x isEqualToString:@"jpeg"]
 	|| [NSHFSTypeOfFile(s) isEqualToString:@"JPEG"];
 }
+
+@implementation NSArray (DYPathToURLHelper)
+
+- (NSArray<NSURL *> *)asFileURLs {
+	NSUInteger n = self.count;
+	NSMutableArray *urls = [NSMutableArray arrayWithCapacity:n];
+	for (NSUInteger i = 0; i < n; ++i) {
+		[urls addObject:[NSURL fileURLWithPath:self[i] isDirectory:NO]];
+	}
+	return [urls copy];
+}
+
+- (NSArray<NSString *> *)asFilePaths {
+	NSUInteger n = self.count;
+	NSMutableArray *paths = [NSMutableArray arrayWithCapacity:n];
+	for (NSUInteger i = 0; i < n; ++i) {
+		[paths addObject:[self[i] path]];
+	}
+	return [paths copy];
+}
+
+@end
 
 CGImageSourceRef _Nullable CGImageSourceCreateFromPath(NSString *path) {
 	NSData *data = [NSData dataWithContentsOfFile:path];

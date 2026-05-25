@@ -33,7 +33,6 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 @property (nonatomic, readonly) NSMutableSet * __strong *cats;
 - (void)updateCats;
 @property (nonatomic, readonly) DYImageCache *thumbsCache;
-@property (readonly) BOOL macos1014available;
 NSDirectoryEnumerator *CreeveyEnumerator(NSString *path, BOOL recurseSubfolders);
 - (BOOL)handledDirectory:(NSURL *)url subfolders:(BOOL)recurse e:(NSDirectoryEnumerator *)e;
 - (BOOL)shouldShowFile:(NSURL *)path;
@@ -45,6 +44,8 @@ NSDirectoryEnumerator *CreeveyEnumerator(NSString *path, BOOL recurseSubfolders)
 - (IBAction)setDesktopPicture:(id)sender;
 - (IBAction)moveSelectedFiles:(id)sender;
 - (IBAction)moveSelectedFilesAgain:(id)sender;
+- (IBAction)copySelectedFiles:(id)sender;
+- (IBAction)copySelectedFilesAgain:(id)sender;
 - (IBAction)moveToTrash:(id)sender;
 - (IBAction)transformJpeg:(id)sender;
 - (IBAction)sortThumbnails:(id)sender;

@@ -88,7 +88,15 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 }
 @end
 
-@interface CreeveyController ()
+@interface DYColorToDataTransformer : NSSecureUnarchiveFromDataTransformer
+@end
+@implementation DYColorToDataTransformer
++ (NSArray<Class> *)allowedTopLevelClasses {
+	return [[super allowedTopLevelClasses] arrayByAddingObject:[NSColor class]];
+}
+@end
+
+@interface CreeveyController () <NSMenuItemValidation>
 @property (nonatomic) BOOL appDidFinishLaunching;
 @property (nonatomic) BOOL filesWereOpenedAtLaunch;
 @property (nonatomic) BOOL windowsWereRestoredAtLaunch;
@@ -145,6 +153,8 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 		@"slideshowScaleUp": @NO,
 		@"slideshowActualSize": @NO,
 		@"slideshowBgColor": [NSKeyedArchiver archivedDataWithRootObject:NSColor.blackColor requiringSecureCoding:YES error:NULL],
+		@"transparentImageBgColor": [NSKeyedArchiver archivedDataWithRootObject:NSColor.clearColor requiringSecureCoding:YES error:NULL],
+		@"slideshowWindowFitToImage": @NO,
 		@"exifThumbnailShow": @NO,
 		@"showFilenames": @YES,
 		@"sortBy": @1, // sort by filename, ascending
@@ -154,6 +164,7 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 		@"autoRotateByOrientationTag": @YES,
 		@"openFilesDoSlideshow": @YES,
 		@"openFilesIgnoreAutoadvance": @NO,
+		@"openFilesOpensBrowserWindowIfNone": @YES,
 		@"startupSlideshowFromFolder":@NO,
 		@"startupSlideshowSubfolders":@NO,
 		@"startupSlideshowSuppressNewWindows":@NO,
@@ -242,11 +253,14 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 		[filetypes removeObject:type];
 	}
 	[self updateMoveToMenuItem];
+	[self updateCopyToMenuItem];
 	[self updateAlternateSlideshowMenuItem];
 	[self updateAppearance];
 	
 	NSUserDefaultsController *ud = NSUserDefaultsController.sharedUserDefaultsController;
 	[ud addObserver:self forKeyPath:@"values.slideshowBgColor" options:0 context:NULL];
+	[ud addObserver:self forKeyPath:@"values.transparentImageBgColor" options:0 context:NULL];
+	[ud addObserver:self forKeyPath:@"values.slideshowWindowFitToImage" options:0 context:NULL];
 	[ud addObserver:self forKeyPath:@"values.DYWrappingMatrixMaxCellWidth" options:0 context:NULL];
 	[ud addObserver:self forKeyPath:@"values.appearance" options:0 context:NULL];
 	localeChangeObserver = [NSNotificationCenter.defaultCenter addObserverForName:NSCurrentLocaleDidChangeNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
@@ -254,11 +268,11 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 	}];
 }
 
-- (BOOL)macos1014available { if (@available(macOS 10.14, *)) return YES; return NO; }
-
 - (void)dealloc {
 	NSUserDefaultsController *u = NSUserDefaultsController.sharedUserDefaultsController;
 	[u removeObserver:self forKeyPath:@"values.slideshowBgColor"];
+	[u removeObserver:self forKeyPath:@"values.transparentImageBgColor"];
+	[u removeObserver:self forKeyPath:@"values.slideshowWindowFitToImage"];
 	[u removeObserver:self forKeyPath:@"values.DYWrappingMatrixMaxCellWidth"];
 	[u removeObserver:self forKeyPath:@"values.appearance"];
 	[NSNotificationCenter.defaultCenter removeObserver:localeChangeObserver];
@@ -326,24 +340,29 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 	[self startSlideshowFullscreen:fullscreen];
 }
 
+static void ShowDirectoryContentsIfPossible(NSURL *u) {
+	// apparently it's not possible to tell the Finder to show the top level contents of a package like .app or .rtfd?
+	NSWorkspace *ws = NSWorkspace.sharedWorkspace;
+	if ([ws isFilePackageAtPath:u.path])
+		[ws activateFileViewerSelectingURLs:@[u]];
+	else
+		[ws openURL:u];
+}
+
 - (IBAction)revealSelectedFilesInFinder:(id)sender {
 	if (slidesWindow.isMainWindow) {
 		if (slidesWindow.currentFile) {
 			NSString *s = slidesWindow.currentFile;
 			[NSWorkspace.sharedWorkspace selectFile:s inFileViewerRootedAtPath:s.stringByDeletingLastPathComponent];
 		} else {
-			[NSWorkspace.sharedWorkspace openFile:slidesWindow.basePath];
+			ShowDirectoryContentsIfPossible(slidesWindow.baseURL);
 		}
 	} else {
 		NSArray *a = frontWindow.currentSelection;
 		if (a.count) {
-			NSMutableArray *b = [NSMutableArray arrayWithCapacity:a.count];
-			for (NSString *s in a) {
-				[b addObject:[NSURL fileURLWithPath:s isDirectory:NO]];
-			}
-			[NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:b];
+			[NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:a.asFileURLs];
 		} else {
-			[NSWorkspace.sharedWorkspace openFile:frontWindow.path];
+			ShowDirectoryContentsIfPossible(frontWindow.URL);
 		}
 	}
 }
@@ -487,6 +506,15 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 	item.title = [NSString stringWithFormat:NSLocalizedString(@"Move to “%@” Again", @"File menu"), name];
 }
 
+- (void)updateCopyToMenuItem {
+	NSString *path = [NSUserDefaults.standardUserDefaults stringForKey:@"lastUsedCopyToFolder"];
+	if (path == nil) return;
+	NSMenu *m = [NSApp.mainMenu itemWithTag:FILE_MENU].submenu;
+	NSMenuItem *item = [m itemWithTag:COPY_TO_AGAIN];
+	NSString *name = [NSFileManager.defaultManager displayNameAtPath:path];
+	item.title = [NSString stringWithFormat:NSLocalizedString(@"Copy to “%@” Again", @"File menu"), name];
+}
+
 - (void)updateAlternateSlideshowMenuItem {
 	NSMenu *m = [NSApp.mainMenu itemWithTag:SLIDESHOW_MENU].submenu;
 	NSMenuItem *item = [m itemWithTag:BEGIN_SLIDESHOW_ALTERNATE];
@@ -494,8 +522,8 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 }
 
 - (void)moveSelectedFilesTo:(NSURL *)dest {
-	NSString *curr = slidesWindow.isMainWindow ? slidesWindow.basePath : frontWindow.path;
-	if ([dest isEqual:[NSURL fileURLWithPath:curr]]) return;
+	NSURL *curr = slidesWindow.isMainWindow ? slidesWindow.baseURL : frontWindow.URL;
+	if ([dest isEqual:curr]) return;
 
 	NSArray *files = slidesWindow.isMainWindow ? @[slidesWindow.currentFile] : frontWindow.currentSelection;
 	NSMutableArray<NSString*> *paths = [NSMutableArray array];
@@ -527,6 +555,29 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 	[creeveyWindows makeObjectsPerformSelector:@selector(filesWereUndeleted:) withObject:[moved valueForKey:@"path"]];
 }
 
+- (void)copySelectedFilesTo:(NSURL *)dest {
+	NSURL *curr = slidesWindow.isMainWindow ? slidesWindow.baseURL : frontWindow.URL;
+	if ([dest isEqual:curr]) return;
+
+	NSArray *files = slidesWindow.isMainWindow ? @[slidesWindow.currentFile] : frontWindow.currentSelection;
+	NSMutableArray<NSString*> *notCopied = [NSMutableArray array];
+
+	NSError * __autoreleasing err;
+	for (NSString *f in files) {
+		NSURL *destUrl = [dest URLByAppendingPathComponent:f.lastPathComponent];
+		if (![NSFileManager.defaultManager copyItemAtPath:f toPath:destUrl.path error:&err])
+			[notCopied addObject:f];
+	}
+	if (notCopied.count) {
+		NSAlert *alert = [[NSAlert alloc] init];
+		if (notCopied.count == 1)
+			alert.informativeText = [NSString stringWithFormat:NSLocalizedString(@"The file “%@” could not be copied because of an error: %@", @""), notCopied[0].lastPathComponent, err.localizedDescription];
+		else
+			alert.informativeText = [NSString stringWithFormat:NSLocalizedString(@"%lu files could not be copied because of an error.", @""), notCopied.count];
+		[alert runModal];
+	}
+}
+
 - (IBAction)moveSelectedFiles:(id)sender {
 	NSOpenPanel *op = [NSOpenPanel openPanel];
 	op.canChooseFiles = NO;
@@ -543,6 +594,24 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 	NSURL *dest = [NSURL fileURLWithPath:folder isDirectory:YES];
 	[self moveSelectedFilesTo:dest];
 }
+
+- (IBAction)copySelectedFiles:(id)sender {
+	NSOpenPanel *op = [NSOpenPanel openPanel];
+	op.canChooseFiles = NO;
+	op.canChooseDirectories = YES;
+	if ([op runModal] != NSModalResponseOK) return;
+	NSURL *dest = op.URL;
+	[self copySelectedFilesTo:dest];
+	[NSUserDefaults.standardUserDefaults setObject:dest.path forKey:@"lastUsedCopyToFolder"];
+	[self updateCopyToMenuItem];
+}
+
+- (IBAction)copySelectedFilesAgain:(id)sender {
+	NSString *folder = [NSUserDefaults.standardUserDefaults stringForKey:@"lastUsedCopyToFolder"];
+	NSURL *dest = [NSURL fileURLWithPath:folder isDirectory:YES];
+	[self copySelectedFilesTo:dest];
+}
+
 
 // returns 1 if successful
 // unsuccessful: 0 user wants to continue; 2 cancel/abort
@@ -571,7 +640,8 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 		NSURL *u;
 		if (doTrash ? [self trashFile:s numLeft:1 resultingURL:&u] : (u = _movedUrls[0]) != nil) {
 			[creeveyWindows makeObjectsPerformSelector:@selector(fileWasDeleted:) withObject:s];
-			[thumbsCache removeImageForKey:s];
+			if (!IsAliasFilePath(s))
+				[thumbsCache removeImageForKey:s];
 			[slidesWindow removeImageForFile:s];
 			NSUInteger idx = slidesWindow.currentIndex;
 			NSUndoManager *um = slidesWindow.undoManager;
@@ -604,7 +674,8 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 			NSURL * __autoreleasing newURL;
 			char result = (doTrash ? [self trashFile:fullpath numLeft:n-i resultingURL:&newURL] : 1);
 			if (result == 1) {
-				[thumbsCache removeImageForKey:fullpath]; // we don't resolve alias here, but that's OK
+				if (!IsAliasFilePath(fullpath))
+					[thumbsCache removeImageForKey:fullpath];
 				[creeveyWindows makeObjectsPerformSelector:@selector(fileWasDeleted:) withObject:fullpath];
 				if (slidesWindow.visible)
 					[slidesWindow removeImageForFile:fullpath];
@@ -696,10 +767,28 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 	if ([NSFileManager.defaultManager fileExistsAtPath:path isDirectory:&isDir] && isDir) {
 		BOOL fullScreen = ![u boolForKey:@"startupSlideshowInWindow"];
 		short int sortOrder = [u integerForKey:@"sortBy"];
-		[slidesWindow loadFilenamesFromPath:path fullScreen:fullScreen wantsSubfolders:[u boolForKey:@"startupSlideshowSubfolders"] comparator:ComparatorForSortOrder(sortOrder) sortOrder:sortOrder];
+		[slidesWindow loadFilenames:nil fromPath:path fullScreen:fullScreen wantsSubfolders:[u boolForKey:@"startupSlideshowSubfolders"] comparator:ComparatorForSortOrder(sortOrder) sortOrder:sortOrder];
 		return YES;
 	}
 	return NO;
+}
+
+- (void)slideshowFromDraggedPaths:(NSArray *)filenames {
+	NSUserDefaults *u = NSUserDefaults.standardUserDefaults;
+	BOOL fullScreen = slidesWindow.visible ? slidesWindow.fullscreenMode : [u integerForKey:@"slideshowDefaultMode"] == 0;
+	short int sortOrder = [u integerForKey:@"sortBy"];
+	NSString *dir = nil;
+	if (filenames.count == 1) {
+		NSString *thePath = filenames[0];
+		BOOL isDir;
+		if ([NSFileManager.defaultManager fileExistsAtPath:thePath isDirectory:&isDir] && isDir) {
+			dir = thePath;
+			filenames = nil;
+		} else {
+			dir = [thePath stringByDeletingLastPathComponent];
+		}
+	}
+	[slidesWindow loadFilenames:filenames fromPath:dir fullScreen:fullScreen wantsSubfolders:NO comparator:ComparatorForSortOrder(sortOrder) sortOrder:sortOrder];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
@@ -717,6 +806,8 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 
 	[self applySlideshowPrefs:nil];
 	[self updateSlideshowBgColor];
+	[self updateTransparentImageBgColor];
+	[self updateSlideshowFitToImage];
 	BOOL doSlideshow = [u boolForKey:@"startupSlideshowFromFolder"];
 	BOOL suppressNewWindow = doSlideshow && [u boolForKey:@"startupSlideshowSuppressNewWindows"];
 	if (doSlideshow) {
@@ -781,13 +872,19 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 
 - (void)openFilesCoalesced {
 	BOOL doSlideshow = [NSUserDefaults.standardUserDefaults boolForKey:@"openFilesDoSlideshow"];
-	[frontWindow openFiles:_coalescedFilesToOpen withSlideshow:doSlideshow];
+	if (creeveyWindows.count)
+		[frontWindow openFiles:_coalescedFilesToOpen withSlideshow:doSlideshow];
+	else
+		[self slideshowFromDraggedPaths:[_coalescedFilesToOpen copy]];
 	[_coalescedFilesToOpen removeAllObjects];
 }
 
 - (void)openFiles:(NSArray *)files {
-	if (!creeveyWindows.count) [self newWindow:nil];
-	[frontWindow.window makeKeyAndOrderFront:nil];
+	NSUserDefaults *ud = NSUserDefaults.standardUserDefaults;
+	if (![ud boolForKey:@"openFilesDoSlideshow"] || [ud boolForKey:@"openFilesOpensBrowserWindowIfNone"]) {
+		if (!creeveyWindows.count) [self newWindow:nil];
+		[frontWindow.window makeKeyAndOrderFront:nil];
+	}
 	if (!_appDidFinishLaunching)
 		_filesWereOpenedAtLaunch = YES;
 	[_coalescedFilesToOpen addObjectsFromArray:files];
@@ -822,8 +919,7 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 }
 
 -(void)applicationDidChangeScreenParameters:(NSNotification *)notification {
-	if (slidesWindow.visible)
-		[slidesWindow resetScreen];
+	[slidesWindow resetScreen];
 }
 
 #pragma mark menu methods
@@ -841,6 +937,8 @@ enum {
 	BEGIN_SLIDESHOW_ALTERNATE,
 	MOVE_TO,
 	MOVE_TO_AGAIN,
+	COPY_TO,
+	COPY_TO_AGAIN,
 	JPEG_OP = 100,
 	ROTATE_L = 107,
 	ROTATE_R = 105,
@@ -877,15 +975,13 @@ enum {
 	if (!creeveyWindows.count) frontWindow = nil;
 	NSUInteger numSelected = frontWindow ? frontWindow.selectedIndexes.count : 0;
 	BOOL writable, isjpeg;
-	NSString *moveTo;
-	
 	switch (test_t) {
 		case NEW_TAB:
 			return frontWindow.window.isMainWindow;
 		case MOVE_TO_AGAIN:
-			moveTo = [NSUserDefaults.standardUserDefaults stringForKey:@"lastUsedMoveToFolder"];
-			// fall through
 		case MOVE_TO:
+		case COPY_TO_AGAIN:
+		case COPY_TO:
 		case MOVE_TO_TRASH:
 		case JPEG_OP:
 			// only when slides isn't loading cache!
@@ -896,20 +992,23 @@ enum {
 					[NSFileManager.defaultManager isDeletableFileAtPath:
 					 slidesWindow.currentFile]
 				: numSelected > 0 && frontWindow && frontWindow.currentFilesDeletable;
-			if (t != JPEG_OP) return writable && (t == MOVE_TO_AGAIN ? moveTo != nil : YES);
-			
+			if (!writable) return NO;
+			if (test_t != JPEG_OP) {
+				if (t == MOVE_TO_AGAIN) return [NSUserDefaults.standardUserDefaults stringForKey:@"lastUsedMoveToFolder"] != nil;
+				if (t == COPY_TO_AGAIN) return [NSUserDefaults.standardUserDefaults stringForKey:@"lastUsedCopyToFolder"] != nil;
+				return YES;
+			}
 			isjpeg = slidesWindow.isMainWindow
 				? slidesWindow.currentFile && FileIsJPEG(slidesWindow.currentFile)
 				: numSelected > 0 && frontWindow && FilesContainJPEG(frontWindow.currentSelection);
-			
+			if (!isjpeg) return NO;
 			if (t == ROTATE_SAVE) { // only allow saving rotations during the slideshow
-				return writable && isjpeg && slidesWindow.isMainWindow
-				&& slidesWindow.currentOrientation > 1;
+				return slidesWindow.isMainWindow && slidesWindow.currentOrientation > 1;
 			}
 			if ((t == EXIF_ORIENT_ROTATE || t == EXIF_ORIENT_RESET) && slidesWindow.isMainWindow) {
-				return writable && isjpeg && slidesWindow.currentFileExifOrientation > 1;
+				return slidesWindow.currentFileExifOrientation > 1;
 			}
-			return writable && isjpeg;
+			return isjpeg;
 		case REVEAL_IN_FINDER:
 			return YES;
 		case BEGIN_SLIDESHOW:
@@ -940,9 +1039,9 @@ enum {
 	for (NSInteger i = 201; i <= SORT_EXIF_DATE; ++i) {
 		NSMenuItem *item = [m itemWithTag:i];
 		if (i == tag) {
-			item.state = sortNum > 0 ? NSOnState : NSMixedState;
+			item.state = sortNum > 0 ? NSControlStateValueOn : NSControlStateValueMixed;
 		} else {
-			item.state = NSOffState;
+			item.state = NSControlStateValueOff;
 		}
 	}
 }
@@ -990,7 +1089,7 @@ enum {
 		_prefWinNibItems = arr;
 		// non-NSMatrix based radio buttons don't seem to have a way to bind values
 		NSButton *btn = [NSUserDefaults.standardUserDefaults integerForKey:@"slideshowDefaultMode"] ? [self.slideshowDefaultModeFullscreenBtn.superview viewWithTag:1] : self.slideshowDefaultModeFullscreenBtn;
-		btn.state = NSOnState;
+		btn.state = NSControlStateValueOn;
 	}
     [prefsWin makeKeyAndOrderFront:nil];
 }
@@ -1057,15 +1156,26 @@ static void SendAction(NSMenuItem *sender) {
 
 - (void)updateSlideshowBgColor {
 	slidesWindow.backgroundColor = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:[NSUserDefaults.standardUserDefaults dataForKey:@"slideshowBgColor"] error:NULL];
+	slidesWindow.contentView.needsDisplay = YES;
+}
+
+- (void)updateTransparentImageBgColor {
+	NSColor *theColor = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSColor class] fromData:[NSUserDefaults.standardUserDefaults dataForKey:@"transparentImageBgColor"] error:NULL];
+	for (CreeveyMainWindowController *w in creeveyWindows) {
+		w.imgMatrix.imageBackgroundColor = theColor;
+	}
+	[slidesWindow setTransparentImageBgColor:theColor];
+}
+
+- (void)updateSlideshowFitToImage {
+	slidesWindow.fitWindowToImage = [NSUserDefaults.standardUserDefaults boolForKey:@"slideshowWindowFitToImage"];
 }
 
 - (void)updateAppearance {
-	if (@available(macOS 10.14, *)) {
-		switch ([NSUserDefaults.standardUserDefaults integerForKey:@"appearance"]) {
-			case 1: NSApp.appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua]; break;
-			case 2: NSApp.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua]; break;
-			default: NSApp.appearance = nil; break;
-		}
+	switch ([NSUserDefaults.standardUserDefaults integerForKey:@"appearance"]) {
+		case 1: NSApp.appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua]; break;
+		case 2: NSApp.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua]; break;
+		default: NSApp.appearance = nil; break;
 	}
 }
 
@@ -1174,7 +1284,10 @@ static void SendAction(NSMenuItem *sender) {
 		}
 	} else if ([keyPath isEqualToString:@"values.slideshowBgColor"]) {
 		[self updateSlideshowBgColor];
-		[slidesWindow.contentView setNeedsDisplay:YES];
+	} else if ([keyPath isEqualToString:@"values.transparentImageBgColor"]) {
+		[self updateTransparentImageBgColor];
+	} else if ([keyPath isEqualToString:@"values.slideshowWindowFitToImage"]) {
+		[self updateSlideshowFitToImage];
 	} else if ([keyPath isEqualToString:@"values.appearance"]) {
 		[self updateAppearance];
 	}
@@ -1293,8 +1406,8 @@ static void SendAction(NSMenuItem *sender) {
 	// make sure menu items are checked properly (code copied from windowChanged:)
 	NSMenu *m = [NSApp.mainMenu itemWithTag:VIEW_MENU].submenu;
 	[self updateMenuItemsForSorting:sortOrder];
-	[m itemWithTag:SHOW_FILE_NAMES].state = wc.imageMatrix.showFilenames ? NSOnState : NSOffState;
-	[m itemWithTag:AUTO_ROTATE].state = wc.imageMatrix.autoRotate ? NSOnState : NSOffState;
+	[m itemWithTag:SHOW_FILE_NAMES].state = wc.imageMatrix.showFilenames ? NSControlStateValueOn : NSControlStateValueOff;
+	[m itemWithTag:AUTO_ROTATE].state = wc.imageMatrix.autoRotate ? NSControlStateValueOn : NSControlStateValueOff;
 }
 
 - (IBAction)newWindow:(id)sender {
@@ -1329,8 +1442,8 @@ static void SendAction(NSMenuItem *sender) {
 	short int sortOrder = frontWindow.sortOrder;
 	NSMenu *m = [NSApp.mainMenu itemWithTag:VIEW_MENU].submenu;
 	[self updateMenuItemsForSorting:sortOrder];
-	[m itemWithTag:SHOW_FILE_NAMES].state = frontWindow.imageMatrix.showFilenames ? NSOnState : NSOffState;
-	[m itemWithTag:AUTO_ROTATE].state = frontWindow.imageMatrix.autoRotate ? NSOnState : NSOffState;
+	[m itemWithTag:SHOW_FILE_NAMES].state = frontWindow.imageMatrix.showFilenames ? NSControlStateValueOn : NSControlStateValueOff;
+	[m itemWithTag:AUTO_ROTATE].state = frontWindow.imageMatrix.autoRotate ? NSControlStateValueOn : NSControlStateValueOff;
 }
 
 - (IBAction)versionCheck:(id)sender {
@@ -1360,8 +1473,7 @@ static void SendAction(NSMenuItem *sender) {
 	}
 }
 - (void)windowDidChangeBackingProperties:(NSNotification *)notification {
-	if (slidesWindow.visible)
-		[slidesWindow configureBacking];
+	[slidesWindow resetScreen];
 }
 
 
