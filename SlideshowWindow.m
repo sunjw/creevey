@@ -1165,6 +1165,9 @@ scheduledTimerWithTimeInterval:timerIntvl
 	if (info) {
 		[imgView zoomBy:event.magnification atPoint:event.locationInWindow];
 		[self saveZoomAndLoadFullSize:info];
+		if (event.phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) {
+			[imgView recenterAfterMagnify];
+		}
 	}
 }
 

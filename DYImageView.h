@@ -32,6 +32,7 @@
 - (void)zoomIn;
 - (void)zoomOut;
 - (void)zoomBy:(float)magnification atPoint:(NSPoint)locationInWindow;
+- (void)recenterAfterMagnify;
 - (void)fakeDragX:(float)x y:(float)y;
 @property (nonatomic, readonly) BOOL zoomMode;
 @property (nonatomic, readonly) BOOL dragMode;
