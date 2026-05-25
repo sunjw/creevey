@@ -86,11 +86,9 @@
 		self.titled = NO;
 		self.hasHorizontalScroller = YES;
 		[self setCellClass:[DYBrowserCell class]];
-		// Use font size from preferences, defaulting to system font size if not set
 		CGFloat fontSize = [NSUserDefaults.standardUserDefaults floatForKey:@"folderBrowserFontSize"];
 		if (fontSize <= 0) fontSize = NSFont.systemFontSize;
-		NSFont *font = [NSFont systemFontOfSize:fontSize];
-		[self.cellPrototype setFont:font];
+		[self.cellPrototype setFont:[NSFont systemFontOfSize:fontSize]];
 		self.allowsEmptySelection = NO;
 		self.columnResizingType = NSBrowserUserColumnResizing;
 		self.prefersAllColumnUserResizing = NO;
