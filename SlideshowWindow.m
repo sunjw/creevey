@@ -1164,11 +1164,9 @@ scheduledTimerWithTimeInterval:timerIntvl
 	DYImageInfo *info = [imgCache infoForKey:ResolveAliasToPath(filename)];
 	if (info) {
 		[imgView zoomBy:event.magnification atPoint:event.locationInWindow];
+		[self saveZoomAndLoadFullSize:info];
 		if (event.phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) {
 			[imgView recenterAfterMagnify];
-			[self saveZoomAndLoadFullSize:info];
-		} else if (event.phase == NSEventPhaseNone) {
-			[self saveZoomAndLoadFullSize:info];
 		}
 	}
 }
