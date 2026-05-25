@@ -174,7 +174,6 @@ static NSRect ScaledCenteredRect(NSSize sourceSize, NSRect boundsRect) {
 											 selector:@selector(resize:)
 												 name:NSViewFrameDidChangeNotification
 											   object:self.enclosingScrollView];
-	[self.enclosingScrollView.contentView setPostsBoundsChangedNotifications:YES];
 	NSUserDefaults *udf = NSUserDefaults.standardUserDefaults;
 	float padding = [udf floatForKey:@"thumbPadding"];
 	_vPadding = _hPadding = padding < 0 ? 0 : padding > PADDING ? PADDING : padding;
@@ -307,6 +306,13 @@ static NSRect ScaledCenteredRect(NSSize sourceSize, NSRect boundsRect) {
 										   r.origin.x-x, r.size.height)]; // left
 	[self setNeedsDisplayInRect:NSMakeRect(x2, r.origin.y,
 										   x+area_w-x2,r.size.height)]; // right
+}
+
+- (void)setImageBackgroundColor:(NSColor *)aColor {
+	if (_imageBackgroundColor != aColor) {
+		_imageBackgroundColor = aColor;
+		self.needsDisplay = YES;
+	}
 }
 
 #pragma mark NSDraggingSource stuff
@@ -537,9 +543,17 @@ static NSRect ScaledCenteredRect(NSSize sourceSize, NSRect boundsRect) {
 	}
 }
 
-- (void)resize:(id)anObject { // called by notification center
+- (void)resize:(id)anObject {
+	NSRect myFrame = self.frame;
+	if (anObject) {
+		// called from NSViewFrameDidChangeNotification.
+		// for some reason screen resolution/size changes trigger the notification,
+		// but fail to update our width
+		myFrame.size.width = self.superview.bounds.size.width;
+		self.frame = myFrame;
+	}
 	[self calculateCellSizes];
-	NSSize mySize = self.frame.size;
+	NSSize mySize = myFrame.size;
 	NSUInteger numRows = numCells == 0 ? 0 : (numCells-1)/numCols + 1;
 	float h = MAX(floorf(numRows*area_h), [[self superview] frame].size.height);
 	if (mySize.height != h) {
@@ -613,8 +627,8 @@ static NSRect ScaledCenteredRect(NSSize sourceSize, NSRect boundsRect) {
 			//NSLog(@"skipped cell %i", i);
 			continue;
 		}
-		[NSColor.whiteColor set]; // white bg for transparent imgs
-		NSRectFill(NSInsetRect(NSIntegralRectWithOptions(cellRect, NSAlignAllEdgesNearest), 1.0, 1.0));
+		[_imageBackgroundColor set]; // for transparent images
+		[NSBezierPath fillRect:[self backingAlignedRect:cellRect options:NSAlignAllEdgesInward]];
 		if (autoRotate) {
 			unsigned short orientation = [self exifOrientationForIndex:i];
 			int r = 0; BOOL imgFlipped = NO;
