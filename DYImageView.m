@@ -13,6 +13,7 @@
 	@public
 	NSPoint center;
 	float zoomF;
+	NSPoint transientOffset;
 }
 @end
 @implementation DYImageViewZoomInfo
@@ -29,6 +30,8 @@
 	float zoomF;
 	NSPoint imageCenter; // the point in the image we want at the center of the screen
 	NSPoint transientMagnifyOffset; // temporary offset while pinching a fully visible image
+	BOOL preserveTransientMagnifyOffsetX;
+	BOOL preserveTransientMagnifyOffsetY;
 }
 @synthesize image, scalesUp, showActualSize, imageFlipped=isImageFlipped, rotation;
 
@@ -85,12 +88,12 @@ static NSRect ZoomAlignedRect(NSRect r, float zoom, CGFloat backingScaleFactor) 
 - (void)getManualZoomGeometryForZoom:(float)zoom sourceSize:(NSSize *)outSourceSize destSize:(NSSize *)outDestSize centeredOrigin:(NSPoint *)outOrigin {
 	NSSize bSize = self.bounds.size;
 	CGFloat centerX = bSize.width/2, centerY = bSize.height/2;
+	NSSize imgSize = image.size;
 	if (rotation == 90 || rotation == -90) {
 		CGFloat tmp = bSize.height;
 		bSize.height = bSize.width;
 		bSize.width = tmp;
 	}
-	NSSize imgSize = image.size;
 	NSSize sourceSize = NSMakeSize(bSize.width/zoom, bSize.height/zoom);
 	NSSize destSize = bSize;
 	if (sourceSize.width > imgSize.width) {
@@ -123,10 +126,10 @@ static NSRect ZoomAlignedRect(NSRect r, float zoom, CGFloat backingScaleFactor) 
 		bSize.width = tmp;
 	}
 	NSSize destSize = bSize;
+	NSSize imgSize = image.size;
 	// if showActualSize and scalesUp are both on, smaller images need to be scaled up (in the else clause), and bigger images should be shown with a default zoom of 1
 	if (zoomF || (showActualSize && !(scalesUp && _fullSize.width < bSize.width && _fullSize.height < bSize.height))) {
 		// source size (for some subrect of the image)
-		NSSize imgSize = image.size;
 		float zoom = (zoomF ?: 1) * _fullSize.width / imgSize.width;
 		sourceRect.size = NSMakeSize(bSize.width/zoom, bSize.height/zoom);
 		if (sourceRect.size.width > imgSize.width) {
@@ -170,11 +173,13 @@ static NSRect ZoomAlignedRect(NSRect r, float zoom, CGFloat backingScaleFactor) 
 			}
 		}
 	}
+	BOOL fullyVisibleWidth = sourceRect.size.width >= imgSize.width;
+	BOOL fullyVisibleHeight = sourceRect.size.height >= imgSize.height;
 	sourceRect = ZoomAlignedRect(sourceRect, _zoom, self.window.backingScaleFactor);
 	NSRect centeredDestRect = NSMakeRect(centerX - destSize.width/2, centerY - destSize.height/2, destSize.width, destSize.height);
-	if (sourceRect.size.width < image.size.width || destSize.width > bSize.width)
+	if (!preserveTransientMagnifyOffsetX && (!fullyVisibleWidth || destSize.width > bSize.width))
 		transientMagnifyOffset.x = 0;
-	if (sourceRect.size.height < image.size.height || destSize.height > bSize.height)
+	if (!preserveTransientMagnifyOffsetY && (!fullyVisibleHeight || destSize.height > bSize.height))
 		transientMagnifyOffset.y = 0;
 	centeredDestRect.origin.x += transientMagnifyOffset.x;
 	centeredDestRect.origin.y += transientMagnifyOffset.y;
@@ -281,6 +286,8 @@ static NSRect ZoomAlignedRect(NSRect r, float zoom, CGFloat backingScaleFactor) 
 	NSSize imgSize = image.size;
 	imageCenter = NSMakePoint(imgSize.width/2, imgSize.height/2);
 	transientMagnifyOffset = NSZeroPoint;
+	preserveTransientMagnifyOffsetX = NO;
+	preserveTransientMagnifyOffsetY = NO;
 	rotation = 0;
 	isImageFlipped = NO;
 
@@ -299,12 +306,15 @@ static NSRect ZoomAlignedRect(NSRect r, float zoom, CGFloat backingScaleFactor) 
 		float f = image.size.width/_fullSize.width;
 		imageCenter.x *= f;
 		imageCenter.y *= f;
+		transientMagnifyOffset = zInfo->transientOffset;
 	} else {
 		zoomF = 0;
 		NSSize s = image.size;
 		imageCenter = NSMakePoint(s.width/2, s.height/2);
+		transientMagnifyOffset = NSZeroPoint;
 	}
-	transientMagnifyOffset = NSZeroPoint;
+	preserveTransientMagnifyOffsetX = NO;
+	preserveTransientMagnifyOffsetY = NO;
 	rotation = degrees;
 	isImageFlipped = flipped;
 	[self setCursor];
@@ -347,6 +357,8 @@ static NSRect ZoomAlignedRect(NSRect r, float zoom, CGFloat backingScaleFactor) 
 	if (!image) return;
 	imageCenter = MakeCenterPoint(sourceRect);
 	transientMagnifyOffset = NSZeroPoint;
+	preserveTransientMagnifyOffsetX = NO;
+	preserveTransientMagnifyOffsetY = NO;
 	[self setCursor];
 	[self calculateRectsAndSetNeedsDisplay];
 }
@@ -420,49 +432,33 @@ static NSRect ZoomAlignedRect(NSRect r, float zoom, CGFloat backingScaleFactor) 
 	if ((magnification < 0 && currentZoom < 0.002) || (magnification > 0 && currentZoom >= 512)) return;
 	NSPoint anchorPoint = [self pointInDrawingSpaceFromWindowPoint:locationInWindow];
 	NSPoint p = [self convertPointToImage:locationInWindow];
+	CGFloat backingScale = self.window.backingScaleFactor ?: 1.0;
+	CGFloat sizeTolerance = 0.5 / backingScale;
+	if (!preserveTransientMagnifyOffsetX && destRect.size.width < self.bounds.size.width - sizeTolerance)
+		preserveTransientMagnifyOffsetX = YES;
+	if (!preserveTransientMagnifyOffsetY && destRect.size.height < self.bounds.size.height - sizeTolerance)
+		preserveTransientMagnifyOffsetY = YES;
+	NSPoint center = MakeCenterPoint(sourceRect);
+	NSPoint oldTransientMagnifyOffset = transientMagnifyOffset;
 	float f = _zoom * (1.0 + magnification);
-	NSSize nextSourceSize, nextDestSize;
-	NSPoint nextOrigin;
-	[self getManualZoomGeometryForZoom:f sourceSize:&nextSourceSize destSize:&nextDestSize centeredOrigin:&nextOrigin];
-	if (nextSourceSize.width < image.size.width) {
-		imageCenter.x = p.x - (anchorPoint.x - nextOrigin.x)/f + nextSourceSize.width/2;
-	} else {
-		imageCenter.x = image.size.width/2;
-	}
-	if (nextSourceSize.height < image.size.height) {
-		imageCenter.y = p.y - (anchorPoint.y - nextOrigin.y)/f + nextSourceSize.height/2;
-	} else {
-		imageCenter.y = image.size.height/2;
-	}
+	CGFloat dx = (p.x - center.x) * _zoom;
+	CGFloat dy = (p.y - center.y) * _zoom;
+	imageCenter.x = p.x - dx / f;
+	imageCenter.y = p.y - dy / f;
 	zoomF = currentZoom * (1.0 + magnification);
-	transientMagnifyOffset = NSZeroPoint;
 	[self calculateRectsAndSetNeedsDisplay];
-	BOOL adjustedForAnchor = NO;
-	if (sourceRect.size.width < image.size.width) {
-		CGFloat drawnX = destRect.origin.x + (p.x - sourceRect.origin.x)*_zoom;
-		CGFloat deltaX = anchorPoint.x - drawnX;
-		if (fabs(deltaX) > 0.5) {
-			imageCenter.x -= deltaX/_zoom;
-			adjustedForAnchor = YES;
-		}
+	BOOL needsRecalculate = NO;
+	if (preserveTransientMagnifyOffsetX) {
+		CGFloat centeredOriginX = destRect.origin.x - oldTransientMagnifyOffset.x;
+		transientMagnifyOffset.x = anchorPoint.x - (centeredOriginX + (p.x - sourceRect.origin.x)*_zoom);
+		needsRecalculate = YES;
 	}
-	if (sourceRect.size.height < image.size.height) {
-		CGFloat drawnY = destRect.origin.y + (p.y - sourceRect.origin.y)*_zoom;
-		CGFloat deltaY = anchorPoint.y - drawnY;
-		if (fabs(deltaY) > 0.5) {
-			imageCenter.y -= deltaY/_zoom;
-			adjustedForAnchor = YES;
-		}
+	if (preserveTransientMagnifyOffsetY) {
+		CGFloat centeredOriginY = destRect.origin.y - oldTransientMagnifyOffset.y;
+		transientMagnifyOffset.y = anchorPoint.y - (centeredOriginY + (p.y - sourceRect.origin.y)*_zoom);
+		needsRecalculate = YES;
 	}
-	if (adjustedForAnchor)
-		[self calculateRectsAndSetNeedsDisplay];
-	if (destRect.size.width <= self.bounds.size.width && sourceRect.size.width >= image.size.width) {
-		transientMagnifyOffset.x = anchorPoint.x - (destRect.origin.x + p.x*_zoom);
-	}
-	if (destRect.size.height <= self.bounds.size.height && sourceRect.size.height >= image.size.height) {
-		transientMagnifyOffset.y = anchorPoint.y - (destRect.origin.y + p.y*_zoom);
-	}
-	if (!NSEqualPoints(transientMagnifyOffset, NSZeroPoint))
+	if (needsRecalculate)
 		[self calculateRectsAndSetNeedsDisplay];
 }
 
@@ -537,6 +533,8 @@ static NSRect ZoomAlignedRect(NSRect r, float zoom, CGFloat backingScaleFactor) 
 }
 
 - (void)recenterAfterMagnify {
+	preserveTransientMagnifyOffsetX = NO;
+	preserveTransientMagnifyOffsetY = NO;
 	if (NSEqualPoints(transientMagnifyOffset, NSZeroPoint)) return;
 	transientMagnifyOffset = NSZeroPoint;
 	[self setCursor];
@@ -556,6 +554,7 @@ static NSRect ZoomAlignedRect(NSRect r, float zoom, CGFloat backingScaleFactor) 
 	DYImageViewZoomInfo *i = [[DYImageViewZoomInfo alloc] init];
 	i->zoomF = zoomF;
 	i->center = c;
+	i->transientOffset = transientMagnifyOffset;
 	float f = image.size.width/_fullSize.width;
 	i->center.x /= f;
 	i->center.y /= f;
