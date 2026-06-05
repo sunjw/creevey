@@ -622,13 +622,25 @@ static void ShowDirectoryContentsIfPossible(NSURL *u) {
 	if (!error)
 		return 1;
 	NSAlert *alert = [[NSAlert alloc] init];
-	alert.informativeText = [NSString stringWithFormat:NSLocalizedString(@"The file %@ could not be moved to the trash because an error of %i occurred.", @""), fullpath.lastPathComponent, (int)error.code];
+	alert.informativeText = [NSString stringWithFormat:NSLocalizedString(@"The file %@ could not be moved to the trash because an error occurred: %@\n\nDo you want to delete the file immediately? This operation cannot be undone!", @""), fullpath.lastPathComponent, error.localizedDescription];
+	alert.icon = [thumbsCache imageForKey:ResolveAliasToPath(fullpath)];
 	[alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"")];
+	NSButton *deleteButton = [alert addButtonWithTitle:NSLocalizedString(@"Delete", @"Delete Immediately Button")];
+	deleteButton.hasDestructiveAction = YES;
 	if (numFiles > 1)
-		[alert addButtonWithTitle:NSLocalizedString(@"Continue", @"")];
+		[alert addButtonWithTitle:NSLocalizedString(@"Skip", @"after move to trash failed")];
 	NSModalResponse response = [alert runModal];
 	if (response == NSAlertFirstButtonReturn)
 		return 2;
+	if (response == NSAlertSecondButtonReturn) {
+		if ([NSFileManager.defaultManager removeItemAtURL:url error:&error]) {
+			*newURL = nil;
+			return 1;
+		}
+		alert = [[NSAlert alloc] init];
+		alert.informativeText = [NSString stringWithFormat:NSLocalizedString(@"The file %@ could not be deleted because an error occurred: %@", @""), fullpath.lastPathComponent, error.localizedDescription];
+		[alert runModal];
+	}
 	return 0;
 }
 
@@ -643,26 +655,29 @@ static void ShowDirectoryContentsIfPossible(NSURL *u) {
 			if (!IsAliasFilePath(s))
 				[thumbsCache removeImageForKey:s];
 			[slidesWindow removeImageForFile:s];
-			NSUInteger idx = slidesWindow.currentIndex;
-			NSUndoManager *um = slidesWindow.undoManager;
-			[um registerUndoWithTarget:self handler:^(id target) {
-				NSError * __autoreleasing err;
-				if ([NSFileManager.defaultManager moveItemAtPath:u.path toPath:s error:&err]) {
-					if (slidesWindow.isMainWindow)
-						[slidesWindow insertFile:s atIndex:idx];
-					[creeveyWindows makeObjectsPerformSelector:@selector(filesWereUndeleted:) withObject:@[s]];
-					if (!doTrash) {
-						[creeveyWindows makeObjectsPerformSelector:@selector(fileWasDeleted:) withObject:u.path];
+			// u will be nil if the user deleted the file successfully after a failed move-to-trash attempt
+			if (u) {
+				NSUInteger idx = slidesWindow.currentIndex;
+				NSUndoManager *um = slidesWindow.undoManager;
+				[um registerUndoWithTarget:self handler:^(id target) {
+					NSError * __autoreleasing err;
+					if ([NSFileManager.defaultManager moveItemAtPath:u.path toPath:s error:&err]) {
 						if (slidesWindow.isMainWindow)
-							[slidesWindow removeImageForFile:u.path];
+							[slidesWindow insertFile:s atIndex:idx];
+						[creeveyWindows makeObjectsPerformSelector:@selector(filesWereUndeleted:) withObject:@[s]];
+						if (!doTrash) {
+							[creeveyWindows makeObjectsPerformSelector:@selector(fileWasDeleted:) withObject:u.path];
+							if (slidesWindow.isMainWindow)
+								[slidesWindow removeImageForFile:u.path];
+						}
+					} else {
+						NSAlert *alert = [[NSAlert alloc] init];
+						alert.informativeText = [NSString stringWithFormat:doTrash ? NSLocalizedString(@"The file \"%@\" could not be restored from the trash because of an error: %@", @"") : NSLocalizedString(@"The file “%@” could not be moved because of an error: %@", @""), s.lastPathComponent, err.localizedDescription];
+						[alert runModal];
 					}
-				} else {
-					NSAlert *alert = [[NSAlert alloc] init];
-					alert.informativeText = [NSString stringWithFormat:doTrash ? NSLocalizedString(@"The file \"%@\" could not be restored from the trash because of an error: %@", @"") : NSLocalizedString(@"The file “%@” could not be moved because of an error: %@", @""), s.lastPathComponent, err.localizedDescription];
-					[alert runModal];
-				}
-			}];
-			[um setActionName:[NSString stringWithFormat:doTrash ? NSLocalizedString(@"Move to Trash",@"") : NSLocalizedString(@"Move File",@"for undo")]];
+				}];
+				[um setActionName:[NSString stringWithFormat:doTrash ? NSLocalizedString(@"Move to Trash",@"") : NSLocalizedString(@"Move File",@"for undo")]];
+			}
 		}
 	} else {
 		NSUInteger oldIndex = frontWindow.selectedIndexes.firstIndex;
@@ -679,7 +694,7 @@ static void ShowDirectoryContentsIfPossible(NSURL *u) {
 				[creeveyWindows makeObjectsPerformSelector:@selector(fileWasDeleted:) withObject:fullpath];
 				if (slidesWindow.visible)
 					[slidesWindow removeImageForFile:fullpath];
-				if (doTrash)
+				if (doTrash && newURL)
 					[trashedFiles addObject:@[fullpath, newURL]]; // this is a pair representing the old and new file locations
 			} else if (result == 2)
 				break;
@@ -815,6 +830,8 @@ static void ShowDirectoryContentsIfPossible(NSURL *u) {
 			// fail silently and open a new window if necessary
 			suppressNewWindow = NO;
 		}
+	} else if (![u boolForKey:@"openFilesOpensBrowserWindowIfNone"] && _filesWereOpenedAtLaunch) {
+		suppressNewWindow = YES;
 	}
 
 	// between version 1.5.3 and 1.5.8, new users would get the splitview collapsed by default,
@@ -949,6 +966,10 @@ enum {
 	SORT_NAME = 201,
 	SORT_DATE_MODIFIED = 202,
 	SORT_EXIF_DATE = 203,
+	SORT_ADDED_DATE,
+	SORT_TYPE,
+	SORT_SIZE,
+	SORT_FILEPATH,
 	SHOW_FILE_NAMES = 251,
 	AUTO_ROTATE = 261,
 	SLIDESHOW_MENU = 1001,
@@ -972,6 +993,8 @@ enum {
 		}
 		test_t = JPEG_OP;
 	}
+	if (t > SORT_NAME && t <= SORT_FILEPATH)
+		test_t = SORT_NAME;
 	if (!creeveyWindows.count) frontWindow = nil;
 	NSUInteger numSelected = frontWindow ? frontWindow.selectedIndexes.count : 0;
 	BOOL writable, isjpeg;
@@ -1023,8 +1046,6 @@ enum {
 			return YES;
 		case GET_INFO:
 		case SORT_NAME:
-		case SORT_DATE_MODIFIED:
-		case SORT_EXIF_DATE:
 		case SHOW_FILE_NAMES:
 			return !slidesWindow.isMainWindow;
 		default:
@@ -1036,7 +1057,7 @@ enum {
 	short int sortType = abs(sortNum);
 	NSInteger tag = 200 + sortType;
 	NSMenu *m = [NSApp.mainMenu itemWithTag:VIEW_MENU].submenu;
-	for (NSInteger i = 201; i <= SORT_EXIF_DATE; ++i) {
+	for (NSInteger i = 201; i <= SORT_FILEPATH; ++i) {
 		NSMenuItem *item = [m itemWithTag:i];
 		if (i == tag) {
 			item.state = sortNum > 0 ? NSControlStateValueOn : NSControlStateValueMixed;
@@ -1047,14 +1068,13 @@ enum {
 }
 
 - (IBAction)sortThumbnails:(id)sender {
-	short int newSort, oldSort;
-	oldSort = frontWindow.sortOrder;
-	newSort = [sender tag] - 200;
+	NSInteger tag = [sender tag];
+	short int oldSort = frontWindow.sortOrder, newSort = tag - 200;
 	
 	if (newSort == abs(oldSort)) {
 		newSort = -oldSort; // reverse the sort if user selects it again
 	} else {
-		if (newSort == 2) newSort = -2; // default to reverse sort if sorting by date
+		if (tag >= SORT_DATE_MODIFIED && tag <= SORT_ADDED_DATE) newSort = -newSort; // default to reverse sort if sorting by date
 	}
 	[self updateMenuItemsForSorting:newSort];
 	[frontWindow changeSortOrder:newSort];
@@ -1489,14 +1509,13 @@ static void SendAction(NSMenuItem *sender) {
 NSDirectoryEnumerator *CreeveyEnumerator(NSString *path, BOOL recurseSubfolders) {
 	return [NSFileManager.defaultManager
 			enumeratorAtURL:[NSURL fileURLWithPath:path isDirectory:YES]
-			includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLIsAliasFileKey,NSURLIsHiddenKey]
+			includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLIsHiddenKey]
 			options:recurseSubfolders ? 0 : NSDirectoryEnumerationSkipsSubdirectoryDescendants
 			errorHandler:nil];
 }
 
 #define IS_URL_DIRECTORY ([url getResourceValue:&val forKey:NSURLIsDirectoryKey error:NULL] && val.boolValue)
 #define IS_URL_HIDDEN    ([url getResourceValue:&val forKey:NSURLIsHiddenKey error:NULL] && val.boolValue)
-#define IS_URL_ALIAS     ([url getResourceValue:&val forKey:NSURLIsAliasFileKey error:NULL] && val.boolValue)
 
 - (BOOL)handledDirectory:(NSURL *)url subfolders:(BOOL)recurse e:(NSDirectoryEnumerator *)e {
 	NSNumber * __autoreleasing val;
@@ -1511,10 +1530,7 @@ NSDirectoryEnumerator *CreeveyEnumerator(NSString *path, BOOL recurseSubfolders)
 - (BOOL)shouldShowFile:(NSURL *)url {
 	NSNumber * __autoreleasing val;
 	if (IS_URL_HIDDEN) return NO;
-	if (IS_URL_ALIAS) {
-		NSURL *resolved = ResolveAliasURL(url);
-		if (resolved) url = resolved;
-	}
+	url = ResolveAliasURL(url);
 	NSString *path = url.path;
 	NSString *pathExtension = url.pathExtension.lowercaseString;
 	if (pathExtension.length == 0) return [fileostypes containsObject:NSHFSTypeOfFile(path)];
