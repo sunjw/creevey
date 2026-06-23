@@ -162,6 +162,8 @@ static NSRect ScaledCenteredRect(NSSize sourceSize, NSRect boundsRect) {
 		myCell = [[NSImageCell alloc] initImageCell:nil];
 		myTextCell = [[NSTextFieldCell alloc] init];
 		myTextCell.alignment = NSTextAlignmentCenter;
+		myTextCell.lineBreakMode = NSLineBreakByTruncatingTail;
+		myTextCell.truncatesLastVisibleLine = YES;
 		images = [[NSMutableArray alloc] initWithCapacity:100];
 		filenames = [[NSMutableArray alloc] initWithCapacity:100];
 		selectedIndexes = [[NSMutableIndexSet alloc] init];
