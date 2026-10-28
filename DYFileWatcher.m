@@ -52,7 +52,8 @@ static void fseventCallback(ConstFSEventStreamRef streamRef, void *info, size_t 
 								 |kFSEventStreamCreateFlagMarkSelf
 								 |kFSEventStreamCreateFlagWatchRoot
 								 );
-	FSEventStreamScheduleWithRunLoop(stream, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+	// delegates update the UI, so keep delivering events on the main thread
+	FSEventStreamSetDispatchQueue(stream, dispatch_get_main_queue());
 	if (!FSEventStreamStart(stream)) {
 		FSEventStreamInvalidate(stream);
 		stream = NULL;
