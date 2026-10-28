@@ -185,23 +185,19 @@ NSMutableAttributedString* Fileinfo2EXIFString(NSString *origPath, DYImageCache 
 		fileostypes = [[NSMutableSet alloc] init];
 		disabledFiletypes = [[NSMutableSet alloc] init];
 		for (NSString *identifier in NSImage.imageUnfilteredTypes) {
-			// easier to use UTType class from UniformTypeIdentifiers, but that's only available in macOS 11
-			// wait actually UTType doesn't include ostypes because apparently "HFS file types are obsolete." :(
 			// YOU CAN PRY MY HFS FILE TYPES OUT OF MY COLD DEAD HANDS
-			CFDictionaryRef t = UTTypeCopyDeclaration((__bridge CFStringRef)identifier);
-			if (t == NULL) continue;
-			CFDictionaryRef tags = CFDictionaryGetValue(t, kUTTypeTagSpecificationKey);
-			if (tags) {
-				NSArray *exts = CFDictionaryGetValue(tags, kUTTagClassFilenameExtension);
-				if (exts)
-					[filetypes addObjectsFromArray:exts];
-				CFArrayRef ostypes = CFDictionaryGetValue(tags, kUTTagClassOSType);
-				if (ostypes) for (NSString *s in (__bridge NSArray *)ostypes) {
-					// enclose HFS file types in single quotes, e.g. "'PICT'"
-					[fileostypes addObject:[NSString stringWithFormat:@"'%@'", s]];
-				}
+			UTType *type = [UTType typeWithIdentifier:identifier];
+			if (!type) continue;
+			NSArray<NSString *> *exts = type.tags[UTTagClassFilenameExtension];
+			if (exts)
+				[filetypes addObjectsFromArray:exts];
+			// UTType no longer publishes the legacy "public.ostype" tag key; the same
+			// HFS type codes are exposed under "com.apple.ostype" instead.
+			NSArray<NSString *> *ostypes = type.tags[@"com.apple.ostype"] ?: type.tags[@"public.ostype"];
+			if (ostypes) for (NSString *s in ostypes) {
+				// enclose HFS file types in single quotes, e.g. "'PICT'"
+				[fileostypes addObject:[NSString stringWithFormat:@"'%@'", s]];
 			}
-			CFRelease(t);
 		}
 		_revealedDirectories = [[NSMutableSet alloc] initWithObjects:[NSURL fileURLWithPath:(@"~/Desktop/").stringByResolvingSymlinksInPath isDirectory:YES], nil];
 		fileextensions = [filetypes.allObjects sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
